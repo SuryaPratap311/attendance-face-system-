@@ -38,7 +38,8 @@ async def find_matched_user_id(frame_bgr: np.ndarray, db: AsyncSession) -> tuple
             if score > best_score:
                 best_score = score
                 best_user_id = user.id
-        except Exception:
+        except Exception as e:
+            print(f"⚠️ Failed to load embedding {user.embedding_path}: {e}")
             continue
 
     return (best_user_id, best_score) if best_score >= SIMILARITY_THRESHOLD else (None, best_score)

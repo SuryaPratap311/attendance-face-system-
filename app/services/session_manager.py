@@ -1,9 +1,9 @@
 # app/services/session_manager.py - Replace entire file
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timezone
 from app.core.config import settings
 
 def get_today_session_date() -> str:
-    return date.today().isoformat()
+    return datetime.now(timezone.utc).date().isoformat()
 
 def parse_time(time_str: str) -> time:
     """Parse 'HH:MM' string to time object."""

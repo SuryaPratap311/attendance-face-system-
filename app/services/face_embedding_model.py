@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 from deepface import DeepFace
 from pathlib import Path
+from app.core.config import settings
 
 def get_embedding(image_bgr: np.ndarray) -> np.ndarray | None:
     """Extract 512-dim ArcFace embedding from BGR image."""
@@ -18,10 +19,12 @@ def get_embedding(image_bgr: np.ndarray) -> np.ndarray | None:
             detector_backend="opencv",
             silent=True
         )
-        return np.array(result[0]["embedding"])
-    except Exception:
+        embedding = np.array(result[0]["embedding"])
+        return embedding.astype(np.float32)  # ← Consistent dtype
+    except Exception as e:
+        print(f"Embedding failed: {e}")  # ← Debug info
         return None
-
+    
 def save_embedding(embedding: np.ndarray, path: str):
     """Save embedding as .npy file."""
     np.save(path, embedding)

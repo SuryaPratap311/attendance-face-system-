@@ -1,34 +1,52 @@
-from datetime import datetime, timezone   # ← add timezone
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from app.models.attendance import Attendance
 from app.models.session import Session
 from app.services.session_manager import get_today_session_date
 
 def _now():
-    return datetime.now(timezone.utc).replace(tzinfo=None)  # store as naive UTC
+    return datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC
 
 async def get_or_create_today_session(db: AsyncSession):
+    """FIXED: Atomic get-or-create with unique constraint handling."""
     session_date = get_today_session_date()
     
-    session = Session(session_date=session_date)
-    db.add(session)
-    await db.commit()
-    
-    await db.refresh(session)
-    
+    # First try to find existing
     result = await db.execute(
         select(Session).where(Session.session_date == session_date)
     )
-    return result.scalar_one()
+    session = result.scalar_one_or_none()
+    
+    if session:
+        return session
+    
+    # Create if not exists (race condition safe due to unique constraint)
+    session = Session(session_date=session_date)
+    db.add(session)
+    
+    try:
+        await db.commit()
+        await db.refresh(session)
+    except Exception:
+        await db.rollback()
+        # Retry query - another transaction may have created it
+        result = await db.execute(
+            select(Session).where(Session.session_date == session_date)
+        )
+        session = result.scalar_one()
+    
+    return session
 
 async def mark_attendance(db: AsyncSession, user_id: int, status: str = "present"):
     session = await get_or_create_today_session(db)
 
     result = await db.execute(
         select(Attendance).where(
-            Attendance.user_id == user_id,
-            Attendance.session_id == session.id
+            and_(
+                Attendance.user_id == user_id,
+                Attendance.session_id == session.id
+            )
         )
     )
     attendance = result.scalar_one_or_none()

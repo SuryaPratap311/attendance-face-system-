@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from app.api.v1.router import api_router
 
-app = FastAPI(title="YOLO Attendance POC")
+app = FastAPI(title="Attendance Tracking System with Face Recognition")
 app.include_router(api_router, prefix="/api/v1")
 
 @app.get("/health")

@@ -1,3 +1,7 @@
+from app.core.database import engine 
+import app.models.user
+import app.models.attendance
+import app.models.session
 from logging.config import fileConfig
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
@@ -8,6 +12,8 @@ from app.models.base import Base
 from app.models.user import User
 from app.models.session import Session
 from app.models.attendance import Attendance
+
+arget_metadata = Base.metadata
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)
