@@ -12,19 +12,20 @@ def get_embedding(image_bgr: np.ndarray) -> np.ndarray | None:
     """Extract 512-dim ArcFace embedding from BGR image."""
     try:
         rgb_image = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+        # ✅ FIXED: silent=True remove kiya, enforce_detection=True rakha
         result = DeepFace.represent(
             rgb_image, 
             model_name="ArcFace",
             enforce_detection=True,  
-            detector_backend="opencv",
-            silent=True
+            detector_backend="opencv"
+            # silent=True HATAYA ✅
         )
         embedding = np.array(result[0]["embedding"])
-        return embedding.astype(np.float32)  # ← Consistent dtype
+        return embedding.astype(np.float32)
     except Exception as e:
-        print(f"Embedding failed: {e}")  # ← Debug info
+        print(f"Embedding failed: {e}")
         return None
-    
+
 def save_embedding(embedding: np.ndarray, path: str):
     """Save embedding as .npy file."""
     np.save(path, embedding)

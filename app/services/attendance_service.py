@@ -1,46 +1,37 @@
-from datetime import datetime, timezone
-from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import date, datetime
 from sqlalchemy import select, and_
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.attendance import Attendance
 from app.models.session import Session
-from app.services.session_manager import get_today_session_date
-
-def _now():
-    return datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC
 
 async def get_or_create_today_session(db: AsyncSession):
-    """FIXED: Atomic get-or-create with unique constraint handling."""
-    session_date = get_today_session_date()
+    """No race condition — simple approach."""
+    today_date = date.today()
     
-    # First try to find existing
+    # 1. Try to find
     result = await db.execute(
-        select(Session).where(Session.session_date == session_date)
+        select(Session.id).where(Session.session_date == today_date)
     )
-    session = result.scalar_one_or_none()
+    session_id = result.scalar()
     
-    if session:
-        return session
-    
-    # Create if not exists (race condition safe due to unique constraint)
-    session = Session(session_date=session_date)
-    db.add(session)
-    
-    try:
-        await db.commit()
-        await db.refresh(session)
-    except Exception:
-        await db.rollback()
-        # Retry query - another transaction may have created it
+    if session_id:
+        # 2. Load full session
         result = await db.execute(
-            select(Session).where(Session.session_date == session_date)
+            select(Session).where(Session.id == session_id)
         )
-        session = result.scalar_one()
+        return result.scalar_one()
     
+    # 3. Create new (no race condition risk)
+    session = Session(session_date=today_date)
+    db.add(session)
+    await db.commit()
+    await db.refresh(session)
     return session
 
 async def mark_attendance(db: AsyncSession, user_id: int, status: str = "present"):
     session = await get_or_create_today_session(db)
 
+    # ✅ Check if already marked today
     result = await db.execute(
         select(Attendance).where(
             and_(
@@ -52,17 +43,22 @@ async def mark_attendance(db: AsyncSession, user_id: int, status: str = "present
     attendance = result.scalar_one_or_none()
 
     if attendance:
+        # Already marked — update if checkout pending
         if attendance.check_out_time is None:
-            attendance.check_out_time = _now()
+            attendance.check_out_time = datetime.now()
             attendance.status = "checked_out"
-            await db.commit()
-            await db.refresh(attendance)
+        else:
+            return attendance  # Already complete
+        
+        await db.commit()
+        await db.refresh(attendance)
         return attendance
 
+    # New check-in
     attendance = Attendance(
         user_id=user_id,
         session_id=session.id,
-        check_in_time=_now(),
+        check_in_time=datetime.now(),
         status=status,
     )
     db.add(attendance)
