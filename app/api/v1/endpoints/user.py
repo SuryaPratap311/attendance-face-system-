@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pathlib import Path
 from uuid import uuid4
 import cv2
+import asyncio
 
 from app.core.database import get_db
 from app.core.config import settings
@@ -28,7 +29,7 @@ async def register_user(
     image_path = await save_user_image(image, employee_id)
 
     # 2. Generate embedding
-    img_bgr = cv2.imread(image_path)
+    img_bgr = await asyncio.to_thread(cv2.imread, image_path)
     if img_bgr is None:
         raise HTTPException(400, "Invalid image file")
 

@@ -1,11 +1,12 @@
+# docker-compose.yml - Replace environment section
 version: '3.8'
 services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: attendance
+      POSTGRES_DB: attendance_db      # ← Your DB name
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password123
+      POSTGRES_PASSWORD: QWERTY       # ← Your password
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -20,7 +21,7 @@ services:
     depends_on:
       - db
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:password123@db:5432/attendance
+      - DATABASE_URL=postgresql+asyncpg://postgres:QWERTY@db:5432/attendance_db  # ← Your creds
 
 volumes:
   postgres_data:

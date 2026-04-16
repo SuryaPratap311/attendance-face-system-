@@ -1,13 +1,15 @@
 from pathlib import Path
 from uuid import uuid4
 from fastapi import UploadFile
+from app.core.config import settings  
 
-UPLOAD_DIR = Path("uploads/users")
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
-async def save_user_image(image: UploadFile, user_name: str) -> str:
+async def save_user_image(image: UploadFile, employee_id: str) -> str: 
+    """Save uploaded user image with employee_id."""
+    UPLOAD_DIR = settings.image_dir  # ← Use config
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    
     ext = Path(image.filename).suffix
-    filename = f"{user_name}_{uuid4().hex}{ext}"
+    filename = f"{employee_id}_{uuid4().hex}{ext}"
     file_path = UPLOAD_DIR / filename
 
     content = await image.read()

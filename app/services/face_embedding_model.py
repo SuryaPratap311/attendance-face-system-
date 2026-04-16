@@ -13,8 +13,8 @@ def get_embedding(image_bgr: np.ndarray) -> np.ndarray | None:
         rgb_image = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
         result = DeepFace.represent(
             rgb_image, 
-            model_name="ArcFace",  # Best accuracy
-            enforce_detection=False,
+            model_name="ArcFace",
+            enforce_detection=True,  
             detector_backend="opencv",
             silent=True
         )

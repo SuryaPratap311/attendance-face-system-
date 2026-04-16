@@ -3,6 +3,7 @@ Production face matching with cosine similarity.
 Threshold: 0.68 (DeepFace ArcFace standard).
 """
 import numpy as np
+import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.user import User
@@ -32,7 +33,7 @@ async def find_matched_user_id(frame_bgr: np.ndarray, db: AsyncSession) -> tuple
 
     for user in users:
         try:
-            stored_embedding = load_embedding(user.embedding_path)
+            stored_embedding = await asyncio.to_thread(np.load, user.embedding_path)
             score = cosine_similarity(live_embedding, stored_embedding)
             if score > best_score:
                 best_score = score

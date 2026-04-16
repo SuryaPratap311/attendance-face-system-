@@ -37,3 +37,12 @@ Thumbs.db
 
 # Logs
 *.log
+
+
+# .gitignore - Add these lines
++__pycache__/
++*.pyc
++*.pyo
++venv/
++.venv/
++uploads/

@@ -6,8 +6,8 @@ class Settings(BaseSettings):
     yolo_model_path: str = "yolov8n-face.pt"
     office_start: str = "09:00"
     office_end: str = "18:00"
-    embedding_dir: Path = Path("uploads/embeddings")
-    image_dir: Path = Path("uploads/users")
+    embedding_dir: str = "uploads/embeddings"  
+    image_dir: str = "uploads/users"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

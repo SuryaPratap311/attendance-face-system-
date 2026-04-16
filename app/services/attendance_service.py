@@ -10,17 +10,17 @@ def _now():
 
 async def get_or_create_today_session(db: AsyncSession):
     session_date = get_today_session_date()
-    result = await db.execute(select(Session).where(Session.session_date == session_date))
-    session = result.scalar_one_or_none()
-
-    if session:
-        return session
-
-    session = Session(session_date=session_date, start_time=_now(), status="open")
+    
+    session = Session(session_date=session_date)
     db.add(session)
     await db.commit()
+    
     await db.refresh(session)
-    return session
+    
+    result = await db.execute(
+        select(Session).where(Session.session_date == session_date)
+    )
+    return result.scalar_one()
 
 async def mark_attendance(db: AsyncSession, user_id: int, status: str = "present"):
     session = await get_or_create_today_session(db)
