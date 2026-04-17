@@ -1,45 +1,56 @@
-"""
-Production face matching with cosine similarity.
-Threshold: 0.68 (DeepFace ArcFace standard).
-"""
+from pathlib import Path
+from typing import Optional, List
+
 import numpy as np
-import asyncio
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from app.models.user import User
-from app.services.face_embedding_model import get_embedding, load_embedding
+from sklearn.neighbors import NearestNeighbors
 
-SIMILARITY_THRESHOLD = 0.68  # ArcFace standard [web:59]
 
-def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
-    """Cosine similarity between two 512-dim embeddings."""
-    return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
+def load_all_embeddings(embedding_dir: str) -> (List[str], np.ndarray):
+    emb_dir = Path(embedding_dir)
+    employee_ids = []
+    embeddings = []
 
-async def find_matched_user_id(frame_bgr: np.ndarray, db: AsyncSession) -> tuple[int | None, float]:
-    """
-    Returns (user_id, confidence_score) or (None, 0.0).
-    Confidence: 0.0-1.0 cosine similarity.
-    """
-    live_embedding = get_embedding(frame_bgr)
-    if live_embedding is None:
-        return None, 0.0
+    if not emb_dir.exists():
+        return [], np.array([])
 
-    # Get all users with embeddings
-    result = await db.execute(select(User).where(User.embedding_path.isnot(None)))
-    users = result.scalars().all()
-
-    best_score = 0.0
-    best_user_id = None
-
-    for user in users:
+    for p in emb_dir.iterdir():
+        if p.suffix != ".npy":
+            continue
         try:
-            stored_embedding = await asyncio.to_thread(np.load, user.embedding_path)
-            score = cosine_similarity(live_embedding, stored_embedding)
-            if score > best_score:
-                best_score = score
-                best_user_id = user.id
-        except Exception as e:
-            print(f"⚠️ Failed to load embedding {user.embedding_path}: {e}")
+            emp_id = p.name.split("_")[0]
+            emb = np.load(str(p)).squeeze()
+            employee_ids.append(emp_id)
+            embeddings.append(emb)
+        except Exception:
             continue
 
-    return (best_user_id, best_score) if best_score >= SIMILARITY_THRESHOLD else (None, best_score)
+    if not embeddings:
+        return [], np.array([])
+
+    return employee_ids, np.array(embeddings)
+
+
+class FaceMatcher:
+    def __init__(self, embedding_dir: str):
+        self.embedding_dir = embedding_dir
+
+    def match_face(self, query_embedding: np.ndarray, threshold: float = 0.30) -> Optional[str]:
+        employee_ids, embeddings = load_all_embeddings(self.embedding_dir)
+
+        if len(employee_ids) == 0:
+            return None
+
+        ann = NearestNeighbors(n_neighbors=1, metric="cosine").fit(embeddings)
+        q = query_embedding.reshape(1, -1)
+        dist, idx = ann.kneighbors(q)
+        min_dist = float(dist[0, 0])
+
+        if min_dist > threshold:
+            return None
+
+        return employee_ids[int(idx[0, 0])]
+
+
+def get_face_matcher():
+    from app.core.config import settings
+    return FaceMatcher(settings.embedding_dir)

@@ -1,67 +1,26 @@
-from datetime import date, datetime
-from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from datetime import datetime
+
 from app.models.attendance import Attendance
-from app.models.session import Session
+from app.models.user import User
 
-async def get_or_create_today_session(db: AsyncSession):
-    """No race condition — simple approach."""
-    today_date = date.today()
-    
-    # 1. Try to find
+
+async def mark_attendance(db: AsyncSession, employee_id: str, status: str = "present") -> Attendance:
     result = await db.execute(
-        select(Session.id).where(Session.session_date == today_date)
+        select(User).where(User.employee_id == employee_id)
     )
-    session_id = result.scalar()
-    
-    if session_id:
-        # 2. Load full session
-        result = await db.execute(
-            select(Session).where(Session.id == session_id)
-        )
-        return result.scalar_one()
-    
-    # 3. Create new (no race condition risk)
-    session = Session(session_date=today_date)
-    db.add(session)
-    await db.commit()
-    await db.refresh(session)
-    return session
+    user = result.scalar_one_or_none()
 
-async def mark_attendance(db: AsyncSession, user_id: int, status: str = "present"):
-    session = await get_or_create_today_session(db)
+    if user is None:
+        raise ValueError(f"User {employee_id} not found")
 
-    #  Check if already marked today
-    result = await db.execute(
-        select(Attendance).where(
-            and_(
-                Attendance.user_id == user_id,
-                Attendance.session_id == session.id
-            )
-        )
-    )
-    attendance = result.scalar_one_or_none()
-
-    if attendance:
-        # Already marked — update if checkout pending
-        if attendance.check_out_time is None:
-            attendance.check_out_time = datetime.now()
-            attendance.status = "checked_out"
-        else:
-            return attendance  # Already complete
-        
-        await db.commit()
-        await db.refresh(attendance)
-        return attendance
-
-    # New check-in
-    attendance = Attendance(
-        user_id=user_id,
-        session_id=session.id,
-        check_in_time=datetime.now(),
+    att = Attendance(
+        employee_id=employee_id,
+        timestamp=datetime.utcnow(),
         status=status,
     )
-    db.add(attendance)
+    db.add(att)
     await db.commit()
-    await db.refresh(attendance)
-    return attendance
+    await db.refresh(att)
+    return att

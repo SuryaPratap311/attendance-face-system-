@@ -1,16 +1,18 @@
-# app/models/attendance.py - Replace
+# app/models/attendance.py
 from datetime import datetime
-from sqlalchemy import DateTime, Integer, String, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.sql import func 
-from app.models.base import Base
+
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship
+
+from app.core.database import Base
+
 
 class Attendance(Base):
     __tablename__ = "attendances"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
-    session_id: Mapped[int] = mapped_column(ForeignKey("sessions.id"), nullable=False, index=True)
-    check_in_time: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now()) 
-    check_out_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="present")
+    id = Column(Integer, primary_key=True)
+    employee_id = Column(String, ForeignKey("users.employee_id"), nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    status = Column(String, default="present", nullable=False)
+
+    user = relationship("User", back_populates="attendances")

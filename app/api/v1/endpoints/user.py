@@ -12,8 +12,22 @@ from app.schemas.user import UserCreate, UserRead
 from app.services.camera_service import capture_frame_from_camera
 from app.services.image_storage import save_captured_image
 from app.services.face_embedding_model import get_embedding, save_embedding
+from app.services.face_matcher import FaceMatcher
+
 
 router = APIRouter(prefix="/users", tags=["Users"])
+
+
+# Global FaceMatcher (lazily initialized)
+_face_matcher: FaceMatcher | None = None
+
+
+def get_face_matcher() -> FaceMatcher:
+    global _face_matcher
+    if _face_matcher is None:
+        _face_matcher = FaceMatcher(embedding_dir=settings.embedding_dir)
+    return _face_matcher
+
 
 async def generate_employee_id(db: AsyncSession) -> str:
     result = await db.execute(select(User.employee_id))
@@ -29,6 +43,7 @@ async def generate_employee_id(db: AsyncSession) -> str:
             continue
 
     return f"EMP{max_num + 1:03d}"
+
 
 @router.post("/register", response_model=UserRead, status_code=201)
 async def register_user(payload: UserCreate, db: AsyncSession = Depends(get_db)):
@@ -47,16 +62,22 @@ async def register_user(payload: UserCreate, db: AsyncSession = Depends(get_db))
     await db.refresh(user)
     return user
 
+
 @router.post("/capture-photo/{employee_id}", response_model=UserRead)
 async def capture_photo(employee_id: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.employee_id == employee_id))
+    result = await db.execute(
+        select(User).where(User.employee_id == employee_id)
+    )
     user = result.scalar_one_or_none()
 
     if not user:
         raise HTTPException(status_code=404, detail="Employee not found")
 
     if user.status == "registered":
-        raise HTTPException(status_code=409, detail="Photo already captured for this employee")
+        raise HTTPException(
+            status_code=409,
+            detail="Photo already captured for this employee"
+        )
 
     frame_bgr = capture_frame_from_camera()
     if frame_bgr is None:
