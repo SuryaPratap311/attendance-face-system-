@@ -1,19 +1,17 @@
 from pathlib import Path
 from uuid import uuid4
-from fastapi import UploadFile
-from app.core.config import settings  
+import cv2
+from app.core.config import settings
 
-async def save_user_image(image: UploadFile, employee_id: str) -> str: 
-    """Save uploaded user image with employee_id."""
-    upload_dir = Path(settings.image_dir) 
+def save_captured_image(frame_bgr, employee_id: str) -> str:
+    upload_dir = Path(settings.image_dir)
     upload_dir.mkdir(parents=True, exist_ok=True)
-    
-    ext = Path(image.filename).suffix
-    filename = f"{employee_id}_{uuid4().hex}{ext}"
+
+    filename = f"{employee_id}_{uuid4().hex}.jpg"
     file_path = upload_dir / filename
 
-    content = await image.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
-
+    cv2.imwrite(str(file_path), frame_bgr)
     return str(file_path)
+
+def save_user_image(image, employee_id: str) -> str:
+    return save_captured_image(image, employee_id)

@@ -31,7 +31,7 @@ async def get_or_create_today_session(db: AsyncSession):
 async def mark_attendance(db: AsyncSession, user_id: int, status: str = "present"):
     session = await get_or_create_today_session(db)
 
-    # ✅ Check if already marked today
+    #  Check if already marked today
     result = await db.execute(
         select(Attendance).where(
             and_(
